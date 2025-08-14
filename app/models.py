@@ -11,20 +11,20 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     transactions = db.relationship('Transaction', backref='owner', lazy=True, cascade="all")
 
-def set_password(self, password):
-    self.password_hash = generate_password_hash(password)
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
 
-def check_password(self, password):
-    #Verifica se a senha fornecida corresponde à senha armazenada.
-    return check_password_hash(self.password_hash, password)
+    def check_password(self, password):
+        #Verifica se a senha fornecida corresponde à senha armazenada.
+        return check_password_hash(self.password_hash, password)
 
-def to_dict(self):
-    return {
-        "id": self.id,
-        "username": self.username,
-        "created_at": self.created_at,
-        "total_transactions": len(self.transactions)
-    }
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "username": self.username,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "total_transactions": len(self.transactions)
+        }
 
 class Transaction(db.Model):
     __tablename__ = "transactions"
@@ -39,8 +39,8 @@ class Transaction(db.Model):
         return {
             "id": self.id,
             "description": self.description,
-            "amount": self.amount,
+            "amount": float(self.amount),
             "type": self.type,
-            "date": self.date,
+            "date": self.date.isoformat() if self.date else None,
             "user_id": self.user_id
         }

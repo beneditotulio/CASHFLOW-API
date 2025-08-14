@@ -36,7 +36,7 @@ def delete_profile():
     return delete_user_profile()
 
 #rota para transações
-@api.route('/transactions', methods=['GET'])
+@api.route('/transactions', methods=['POST'])
 @jwt_required()
 def create_transaction():
     current_user_id = int(get_jwt_identity())
@@ -48,6 +48,25 @@ def create_transaction():
     if data['type'] not in ['income', 'expense']:
         return jsonify({"msg": "The type must be 'income' or 'expense'"}), 400
 
+    try:
+        amount = float(data['amount'])
+        if amount <= 0:
+            return jsonify({"msg": "Amount must be positive"}), 400
+    except (ValueError, TypeError):
+        return jsonify({"msg": "Invalid amount"}), 400
+
+    new_transaction = Transaction(
+        description=data['description'],
+        amount=amount,
+        type=data['type'],
+        user_id=current_user_id
+    )
+    
+    db.session.add(new_transaction)
+    db.session.commit()
+    
+    return jsonify(new_transaction.to_dict()), 201
+
 
 @api.route('/transactions', methods=['GET'])
 @jwt_required()
@@ -56,7 +75,7 @@ def get_transactions():
     transactions = Transaction.query.filter_by(user_id=current_user_id).order_by(Transaction.date.desc()).all()
     return jsonify([t.to_dict() for t in transactions]), 200
 
-@api.route('/transactions/<int:transaction_id>', methods=['PUT'])
+@api.route('/transactions/<int:transaction_id>', methods=['GET'])
 @jwt_required()
 def get_transaction(transaction_id):
     current_user_id = int(get_jwt_identity())
@@ -66,20 +85,7 @@ def get_transaction(transaction_id):
         return jsonify({"msg": "Unauthorized"}), 403
     return jsonify(transaction.to_dict()), 200
 
-@api.route('/transactions/<int:transaction_id>', methods=['DELETE'])
-@jwt_required()     
-def delete_transaction(transaction_id):
-    current_user_id = int(get_jwt_identity())
-    transaction = Transaction.query.get_or_404(transaction_id)
-
-    if transaction.user_id != current_user_id:
-        return jsonify({"msg": "Unauthorized"}), 403
-
-    db.session.delete(transaction)
-    db.session.commit()
-    return jsonify({"msg": "Transaction deleted successfully"}), 200
-
-@api.route("/transactions/<int:transaction_id>", methods=['PUT'])
+@api.route('/transactions/<int:transaction_id>', methods=['PUT'])
 @jwt_required()
 def update_transaction(transaction_id):
     current_user_id = int(get_jwt_identity())
@@ -90,11 +96,12 @@ def update_transaction(transaction_id):
     data = request.get_json()
     transaction.description = data.get('description', transaction.description)
     transaction.amount = data.get('amount', transaction.amount)
+    transaction.type = data.get('type', transaction.type)
     db.session.commit()
     return jsonify(transaction.to_dict()), 200
 
-@api.route('/transaction/details/<int:transaction_id>', methods=['DELETE'])
-@jwt_required()
+@api.route('/transactions/<int:transaction_id>', methods=['DELETE'])
+@jwt_required()     
 def delete_transaction(transaction_id):
     current_user_id = int(get_jwt_identity())
     transaction = Transaction.query.get_or_404(transaction_id)
